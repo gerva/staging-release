@@ -1,3 +1,2 @@
 1. beta32 staging release
 2. missing symlinl ln -sf ../buildbot-configs/mozilla/universal_master_sqlite.cfg master.cfg (from master dir)
-3. missing notify_to_release in release-runner.ini
