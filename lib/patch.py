@@ -156,14 +156,13 @@ def patch_map(repository_names, username, tracking_bug):
     # replace stage-ffxbld -> username_mozilla.com
     my_map['stage-ffxbld'] = ('users/stage-ffxbld',
                               'users/{0}_mozilla.com'.format(username))
-    # optimizations:
-    # increase the number of chunks
-    my_map['number_of_chunks'] = ("releaseConfig['l10nChunks']          = 2",
-                                  "releaseConfig['l10nChunks']          = 6")
-    src = 'users/stage-ffxbld/mozilla-beta'
-    dst = 'users/{0}_mozilla.com/mozilla-beta'.format(username)
-    my_map['mozilla-beta-stage'] = (src, dst)
+    for repo in ('mozilla-beta', 'mozilla-aurora', 'mozilla-esr31',):
+        src = 'users/stage-ffxbld/'
+        dst = 'users/{0}_mozilla.com/{1}'.format(username, repo)
+        name = '{0}-stage'.format(repo)
+        my_map[name] = (src, dst)
 
+    # releases/mozilla-beta => users/<username>_mozilla.com/mozilla_beta
     src = 'releases/mozilla-beta'
     dst = 'users/{0}_mozilla.com/mozilla-beta'.format(username)
     my_map['mozilla-beta'] = (src, dst)
