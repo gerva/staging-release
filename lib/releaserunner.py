@@ -27,17 +27,18 @@ class ReleaseRunner(object):
     def install(self):
         """installs buildbot master"""
         log.info('installing release runner')
-        self._clone(self.basedir)
+        self._clone()
         self.create_virtualenv()
         self._create_startup_file()
         self.create_ini_file()
 
-    def _clone(self, target_dir):
+    def _clone(self):
         """clones buildbot-configs into target_dir"""
         config = self.configuration
         repos = config.get_list('release-runner', 'repositories')
         for repo in repos:
             repo_ = Repository(config, repo)
+            target_dir = os.path.join(self.basedir, repo)
             repo_.clone_locally(target_dir)
 
     def _create_startup_file(self):
