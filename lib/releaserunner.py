@@ -45,10 +45,11 @@ class ReleaseRunner(object):
         conf = self.configuration
         startup = conf.get('release-runner', 'startup')
         startup_path = conf.get('release-runner', 'startup_path')
+        basedir = conf.get('release-runner', 'basedir')
         log.info('writing release runner startup file')
         with open(startup_path, 'w') as startup_script:
             startup_script.write('#!/bin/bash\n\n')
-            startup_script.write('cd "$(dirname $0)"\n')
+            startup_script.write('cd "{0}"\n'.format(basedir))
             startup_script.write('source {0}\n'.format(self.activate_path))
             startup_script.write("{0} {1}\n".format(self.python_path, startup))
 
