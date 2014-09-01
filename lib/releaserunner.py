@@ -34,10 +34,11 @@ class ReleaseRunner(object):
 
     def _clone(self, target_dir):
         """clones buildbot-configs into target_dir"""
-        conf = self.configuration
-        repo = conf.get('release-runner', 'repository')
-        repo = Repository(conf, repo)
-        repo.clone_locally(target_dir)
+        config = self.configuration
+        repos = config.get_list('release-runner', 'repositories')
+        for repo in repos:
+            repo_ = Repository(config, repo)
+            repo_.clone_locally(target_dir)
 
     def _create_startup_file(self):
         conf = self.configuration
