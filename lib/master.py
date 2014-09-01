@@ -4,7 +4,6 @@ import sh
 import subprocess
 from lib.venv import Virtualenv
 from lib.repositories import Repository, RepositoryError
-
 from lib.logger import logger
 log = logger(__name__)
 
@@ -126,7 +125,10 @@ class Master(object):
     def install_buildbot(self):
         """make intall-buildbot target"""
         self._clone_repositories()
-        self._generate_master_json()
+        conf = self.configuration
+        json_template = conf.get('master', 'json_template')
+        dst_json = conf.get('master', 'dst_json')
+        generate_master_json(conf, json_template, dst_json)
         conf = self.configuration
         args = conf.get_list('master', 'buildbot_install')
         args = [option.strip() for option in args]
@@ -162,21 +164,19 @@ class Master(object):
         log.debug('creating symlink: {0} => {1}'.format(src, dst))
         os.symlink(src, dst)
 
-    def _generate_master_json(self):
-        """creates master.json file from a template"""
-        conf = self.configuration
-        json_template = conf.get('master', 'json_template')
-        json_file = conf.get('master', 'dst_json')
-        out_json = []
-        with open(json_template, 'r') as json_in:
-            for line in json_in:
-                if '@' in line:
-                    pre, sep, post = line.partition('@')
-                    option = post.partition('@')[0]
-                    value = conf.get('master', option.lower())
-                    line = line.replace('@{0}@'.format(option), value)
-                out_json.append(line)
 
-        with open(json_file, 'w') as json_out:
-            for line in out_json:
-                json_out.write(line)
+def generate_master_json(configuration, json_template, dst_json):
+    """creates master.json/production_master.json file from a template"""
+    out_json = []
+    with open(json_template, 'r') as json_in:
+        for line in json_in:
+            if '@' in line:
+                pre, sep, post = line.partition('@')
+                option = post.partition('@')[0]
+                value = configuration.get('master', option.lower())
+                line = line.replace('@{0}@'.format(option), value)
+            out_json.append(line)
+
+    with open(dst_json, 'w') as json_out:
+        for line in out_json:
+            json_out.write(line)
