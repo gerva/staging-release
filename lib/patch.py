@@ -3,8 +3,10 @@
 import os
 import shutil
 import tempfile
+import time
 from lib.logger import logger
 from lib.repositories import Repository
+from lib.master import generate_master_json
 log = logger(__name__)
 
 
@@ -17,10 +19,10 @@ class Patch(object):
     """
     Updates user's repositories so configuration points to the right location
     """
-    def __init__(self, configuration, release_type):
+    def __init__(self, configuration, release_type, repository):
         assert isinstance(release_type, (list, tuple))
         self.release_type = list(release_type)
-        self.repository = None
+        self.repository = repository
         self.tokens = configuration.get_list('patch', 'tokens')
         self.configuration = configuration
         self.dst_dir = None
@@ -128,18 +130,38 @@ class Patch(object):
         except TypeError as error:
             log.debug(error)
 
-    def fix(self, repository):
+
+class PatchBuildbotConfigs(Patch):
+    """Fixes buildbot-configs"""
+    def fix(self):
         """clones, updates, commit and pushes the your repo"""
         log.info('updating configuration for staging release')
-        import time
         # sleep 20 sec
         time.sleep(20)
         for branch in ('default', 'production'):
-            self.clone(repository, branch)
+            self.clone(self.repository, branch)
             self.update_configs()
             self.commit_changes()
             self.push_changes()
             time.sleep(20)
+
+
+class PatchTools(Patch):
+    """Fixes tools repository"""
+    def fix(self):
+        """creates production_master.json"""
+        log.info('creating production-masters.json')
+        time.sleep(20)
+        conf = self.configuration
+        json_template = conf.get('master', 'json_template')
+        dst_json = conf.get('master', 'production_masters_json')
+        log.info(">>>> dst_json: {0}".format(dst_json))
+        for branch in ('default',):
+            # no production branch in tools repo
+            self.clone(self.repository, branch)
+            self.commit_changes()
+            generate_master_json(conf, json_template, dst_json)
+            # self.push_changes()
 
 
 def patch_map(repository_names, username, tracking_bug):
