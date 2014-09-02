@@ -47,6 +47,8 @@ class Config(configparser.ConfigParser):
             return super(Config, self).get(section, option, **_3to2kwargs)
         except Exception as error:
             log.debug(error)
+            log.debug('requested section: {0}'.format(section))
+            log.debug('requested option: {0}'.format(option))
             raise ConfigError(error)
 
     def get_list(self, section, option, **_3to2kwargs):

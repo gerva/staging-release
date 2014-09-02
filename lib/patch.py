@@ -6,7 +6,9 @@ import tempfile
 import time
 from lib.logger import logger
 from lib.repositories import Repository
+from lib.download import download, DownloadError
 from lib.master import generate_master_json
+from lib.config import ConfigError
 log = logger(__name__)
 
 
@@ -19,11 +21,13 @@ class Patch(object):
     """
     Updates user's repositories so configuration points to the right location
     """
-    def __init__(self, configuration, release_type, repository):
+    def __init__(self, configuration, release_type, name):
         assert isinstance(release_type, (list, tuple))
         self.release_type = list(release_type)
-        self.repository = repository
-        self.tokens = configuration.get_list('patch', 'tokens')
+        self.name = name
+        # this property references a repo object
+        self.repository = None
+        self.tokens = None
         self.configuration = configuration
         self.dst_dir = None
 
@@ -46,7 +50,7 @@ class Patch(object):
         conf = self.configuration
         username = conf.get('common', 'username')
         bug = conf.get('common', 'tracking_bug')
-        repo_names = conf.get_list('patch', 'replace')
+        repo_names = conf.get_list(self.name, 'replace')
         repos = patch_map(repo_names, username, bug)
         for repo in repos:
             # replace build/<repo> with users/... repo
@@ -77,7 +81,7 @@ class Patch(object):
     def commit_changes(self):
         """executes hg commit on the local repository"""
         conf = self.configuration
-        commit_msg = conf.get('patch', 'commit_message')
+        commit_msg = conf.get(self.name, 'commit_message')
         log.info('committing local changes')
         repo = self.repository
         repo.commit(commit_msg)
@@ -99,7 +103,7 @@ class Patch(object):
             log.debug(error)
 
     def push_changes(self):
-        """push changes to remote"""
+        """push changes to remote and deletes temp repo"""
         log.info('pushing changes to remote')
         repo = self.repository
         repo.push()
@@ -130,19 +134,33 @@ class Patch(object):
         except TypeError as error:
             log.debug(error)
 
+    def _get_tokens(self):
+        configuration = self.configuration
+        try:
+            self.tokens = configuration.get_list(self.name, 'tokens')
+        except ConfigError:
+            log.debug('{0} has no tokens'.format(self.name))
+            self.tokens = []
+
+    def fix(self):
+        """patches, commits and pushes changes to the repository
+           needs to be implemented in a sub-class
+        """
+        pass
+
 
 class PatchBuildbotConfigs(Patch):
     """Fixes buildbot-configs"""
     def fix(self):
         """clones, updates, commit and pushes the your repo"""
-        log.info('updating configuration for staging release')
+        log.info('running {0}'.format(self.name))
         # sleep 20 sec
         time.sleep(20)
         for branch in ('default', 'production'):
-            self.clone(self.repository, branch)
+            self.clone('buildbot-configs', branch)
             self.update_configs()
             self.commit_changes()
-            self.push_changes()
+            # self.push_changes()
             time.sleep(20)
 
 
@@ -150,18 +168,42 @@ class PatchTools(Patch):
     """Fixes tools repository"""
     def fix(self):
         """creates production_master.json"""
-        log.info('creating production-masters.json')
+        log.info('running {0}'.format(self.name))
         time.sleep(20)
         conf = self.configuration
-        json_template = conf.get('master', 'json_template')
-        dst_json = conf.get('master', 'production_masters_json')
-        log.info(">>>> dst_json: {0}".format(dst_json))
-        for branch in ('default',):
-            # no production branch in tools repo
-            self.clone(self.repository, branch)
-            self.commit_changes()
-            generate_master_json(conf, json_template, dst_json)
-            # self.push_changes()
+        # production master
+        pm_json_url = conf.get(self.name, 'src_production_masters_json')
+        # get relative production-masters.json dst
+        pm_json_dst = conf.get(self.name, 'dst_production_masters_json')
+        log.info('*** pm_json_dst = {0}'.format(pm_json_dst))
+
+        # clone the tools repository
+        # tools has no 'production' branch...
+        self.clone('tools', 'default')
+        # we need to download src_production_masters_json in a temp file
+        # because the file needs some detokenization (generate_master_json
+        # does it)
+
+        # now that we have a checkout dir,
+        # update pm_json_dst with its absolute path
+        pm_json_dst = os.path.join(self.dst_dir, pm_json_dst)
+        log.info('*** pm_json_dst = {0}'.format(pm_json_dst))
+        temp_pm_json = ''.join((pm_json_dst, 'temp'))
+        # now download the production master template
+        try:
+            download(pm_json_url, temp_pm_json)
+        except DownloadError as error:
+            log.error('unable to download production master template')
+            raise PatchError(error)
+
+        # now we have a fresh copy production master json
+        generate_master_json(self.configuration, temp_pm_json, pm_json_dst)
+        # remove temp_pm_json
+        os.remove(temp_pm_json)
+
+        # commit the changes
+        self.commit_changes()
+        self.push_changes()
 
 
 def patch_map(repository_names, username, tracking_bug):

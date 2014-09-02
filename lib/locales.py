@@ -1,8 +1,9 @@
 """
 download the list of locales
 """
-import urllib2
-
+import os
+from tempfile import NamedTemporaryFile
+from lib.download import download, DownloadError
 from lib.logger import logger
 log = logger(__name__)
 
@@ -19,22 +20,21 @@ def get_shipped_locales(locales_url):
         taken from locales_url
     """
     locales = []
+    # need to set delete=False because otherwise this file
+    # gets deleted just after the download as soon it gets closed
+    temp_locales = NamedTemporaryFile(delete=False)
     try:
-        data = urllib2.urlopen(locales_url)
-    except urllib2.HTTPError as error:
-        msg = 'HTTPError = {0}\n'.format(str(error.code))
-        msg = '{0}url: {1}'.format(locales_url)
-        log.error(msg)
-        raise NoLocalesError(msg)
-    except urllib2.URLError as error:
-        msg = 'URLError = {0}'.format(error.reason)
-        msg = '{0}url: {1}'.format(locales_url)
-        log.error(msg)
-        raise NoLocalesError(msg)
-    for line in data:
-        line = line.strip()
-        # removing empty lines and line = en-US
-        if line and line != 'en-US':
-            locales.append(line.strip())
+        download(locales_url, temp_locales)
+    except DownloadError as error:
+        log.error("Unable to get locales list")
+        raise NoLocalesError(error)
+    with open(temp_locales) as locales_file:
+        for line in locales_file.readlines():
+            line = line.strip()
+            # removing empty lines and line = en-US
+            if line and line != 'en-US':
+                locales.append(line.strip())
     log.debug('locales: {0}'.format(locales))
+    # removing temp file
+    os.remove(temp_locales)
     return tuple(locales)

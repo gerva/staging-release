@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-
-#https://wiki.mozilla.org/Release:Release_Automation_on_Mercurial:Staging_Specific_Notes
-#https://wiki.mozilla.org/ReleaseEngineering/How_To/Setup_Personal_Development_Master#Create_a_build_master
+"""creates and patches all the repos needed for a staging release"""
+# https://wiki.mozilla.org/Release:Release_Automation_on_Mercurial:Staging_Specific_Notes
+# https://wiki.mozilla.org/ReleaseEngineering/How_To/Setup_Personal_Development_Master#Create_a_build_master
 import os
 from lib.config import Config
 from lib.repositories import Repositories, RepositoryError
-from lib.patch import Patch, PatchError
+from lib.patch import PatchBuildbotConfigs, PatchTools, PatchError
 from lib.logger import logger
 import argparse
 
@@ -34,11 +34,16 @@ if __name__ == '__main__':
         config.set('common', 'username', args.username)
     log.debug(config)
     relese_type = config.get_list('common', 'staging_release')
-    patch = Patch(config, relese_type)
+    # prepare buildbot-configs and tools to be patched
+    # info about patching are inside the patch-<repository> section
+    # and we need to pass it to our Patch objects
+    patch_bc = PatchBuildbotConfigs(config, relese_type, 'patch-buildbot-configs')
+    patch_tools = PatchTools(config, relese_type, 'patch-tools')
     repositories = Repositories(config)
     try:
-        repositories.prepare_user_repos()
-        patch.fix('buildbot-configs')
+        # repositories.prepare_user_repos()
+        patch_bc.fix()
+        patch_tools.fix()
     except PatchError as error:
         log.error('unable to patch user repositories: {0}'.format(error))
     except RepositoryError as error:
