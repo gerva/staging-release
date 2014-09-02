@@ -82,7 +82,7 @@ class Config(configparser.ConfigParser):
         if self.skip_validation:
             return
 
-        for section in ('common', 'shipit', 'port_ranges', 'master'):
+        for section in ('common', 'port_ranges',):
             if not self.has_section(section):
                 msg = 'bad configuration file,'
                 msg = '{0} missing section {1}'.format(msg, section)
@@ -131,9 +131,11 @@ class Config(configparser.ConfigParser):
         """this method collects all the values that should be
             determined at runtime"""
         self._set_username()
-        self._set_shipit_password()
-        self._set_shipit_port()
-        self._set_master_ports()
+        if self.has_section('shipit'):
+            self._set_shipit_password()
+            self._set_shipit_port()
+        if self.has_section('master'):
+            self._set_master_ports()
         self._set_python_path()
 
     def _set_username(self):
