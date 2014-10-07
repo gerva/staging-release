@@ -24,11 +24,11 @@ def get_shipped_locales(locales_url):
     # gets deleted just after the download as soon it gets closed
     temp_locales = NamedTemporaryFile(delete=False)
     try:
-        download(locales_url, temp_locales)
+        download(locales_url, temp_locales.name)
     except DownloadError as error:
         log.error("Unable to get locales list")
         raise NoLocalesError(error)
-    with open(temp_locales) as locales_file:
+    with open(temp_locales.name) as locales_file:
         for line in locales_file.readlines():
             line = line.strip()
             # removing empty lines and line = en-US
@@ -36,5 +36,5 @@ def get_shipped_locales(locales_url):
                 locales.append(line.strip())
     log.debug('locales: {0}'.format(locales))
     # removing temp file
-    os.remove(temp_locales)
+    os.remove(temp_locales.name)
     return tuple(locales)
