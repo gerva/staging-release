@@ -249,12 +249,12 @@ class Repositories(object):
             raise NoLocalesError(error)
         log.info('creating locales repositories')
         log.debug('locales: {0}'.format(locales))
-#        for locale in locales:
-#            log.info('repository: {0}'.format(locale))
-#             # make it optional from configuration/command line
-#            loc = LocaleRepository(locale)
-#            loc.delete()
-#            loc.create()
+        for locale in locales:
+            log.info('repository: {0}'.format(locale))
+            # make it optional from configuration/command line
+            loc = LocaleRepository(locale)
+            loc.delete()
+            loc.create()
 
     def delete_all_repos(self):
         """runs delete, create, clone and tag on every repository"""
