@@ -41,7 +41,7 @@ if __name__ == '__main__':
     patch_tools = PatchTools(config, relese_type, 'patch-tools')
     repositories = Repositories(config)
     try:
-        # repositories.prepare_user_repos()
+        repositories.prepare_user_repos()
         patch_bc.fix()
         patch_tools.fix()
     except PatchError as error:
