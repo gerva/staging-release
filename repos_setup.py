@@ -21,6 +21,9 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--release', help=msg, required=True)
     msg = 'username: if not specified, whoami will be used'
     parser.add_argument('-u', '--username', help=msg)
+    msg = 'create locales repositories (default to False)'
+    parser.add_argument('-l', '--create-locales', help=msg,
+                        action='store_true', default=False)
     args = parser.parse_args()
 
     # reading configuration
@@ -40,6 +43,10 @@ if __name__ == '__main__':
     patch_bc = PatchBuildbotConfigs(config, relese_type, 'patch-buildbot-configs')
     patch_tools = PatchTools(config, relese_type, 'patch-tools')
     repositories = Repositories(config)
+    if args.create_locales:
+        # -l or --create-locales is set.
+        # tell to the repository object we want it to create the locales repos
+        repositories.mangage_locales()
     try:
         repositories.prepare_user_repos()
         patch_bc.fix()
