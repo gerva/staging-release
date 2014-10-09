@@ -177,6 +177,9 @@ def generate_master_json(configuration, json_template, dst_json):
                 line = line.replace('@{0}@'.format(option), value)
             out_json.append(line)
 
+    if out_json:
+        log.debug('writing our new master_json file:')
+        log.debug("".join(out_json))
     with open(dst_json, 'w') as json_out:
         for line in out_json:
             json_out.write(line)
