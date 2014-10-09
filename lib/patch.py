@@ -112,19 +112,15 @@ class Patch(object):
     def _files_to_update(self):
         """returns a list of files to update"""
         config = self.configuration
-        files = self.release_type
-        files.append('common_files')
+        files = config.get_list('staging_files', 'common_files')
         files.append('l10n')
-        staging_files = []
-        for element in files:
-            config_files = config.get_list('staging_files', element)
-            log.debug(config_files)
-            staging_files.extend(config_files)
         # get the absolute path
-        staging_files = [os.path.join(self.dst_dir, f) for f in staging_files]
+        staging_files = [os.path.join(self.dst_dir, f) for f in files]
         # remove not existing files
         staging_files = [f for f in staging_files if os.path.exists(f)]
-        log.debug('files to be patched: {0}'.format(set(staging_files)))
+        log.debug('files to be patched:')
+        for f in staging_files:
+            log.debug("* {0}".format(set(staging_files)))
         return set(staging_files)
 
     def _absoulute_path(self, filename):
@@ -160,7 +156,7 @@ class PatchBuildbotConfigs(Patch):
             self.clone('buildbot-configs', branch)
             self.update_configs()
             self.commit_changes()
-            # self.push_changes()
+            self.push_changes()
             time.sleep(20)
 
 
@@ -175,8 +171,6 @@ class PatchTools(Patch):
         pm_json_url = conf.get(self.name, 'src_production_masters_json')
         # get relative production-masters.json dst
         pm_json_dst = conf.get(self.name, 'dst_production_masters_json')
-        log.info('*** pm_json_dst = {0}'.format(pm_json_dst))
-
         # clone the tools repository
         # tools has no 'production' branch...
         self.clone('tools', 'default')
@@ -187,7 +181,6 @@ class PatchTools(Patch):
         # now that we have a checkout dir,
         # update pm_json_dst with its absolute path
         pm_json_dst = os.path.join(self.dst_dir, pm_json_dst)
-        log.info('*** pm_json_dst = {0}'.format(pm_json_dst))
         temp_pm_json = ''.join((pm_json_dst, 'temp'))
         # now download the production master template
         try:
@@ -217,14 +210,22 @@ def patch_map(repository_names, username, tracking_bug):
                         'users/{0}_mozilla.com/{1}-{2}'.format(username,
                                                                repo,
                                                                tracking_bug))
-    # replace stage-ffxbld -> username_mozilla.com
-    my_map['stage-ffxbld'] = ('users/stage-ffxbld',
-                              'users/{0}_mozilla.com'.format(username))
-    for repo in ('mozilla-beta', 'mozilla-aurora', 'mozilla-esr31',):
-        src = 'users/stage-ffxbld/'
-        dst = 'users/{0}_mozilla.com/{1}'.format(username, repo)
-        name = '{0}-stage'.format(repo)
+    # replace stage-ffxbld/<repo> -> username_mozilla.com/<repo>-<bug_number>
+    for repo in ('tools', 'buildbot-configs', 'buildbotcustom', 'mozharness',
+                 'partner-repacks', 'compare-locales', 'buildbot'):
+
+        name = '{0}-{1}'.format(repo, tracking_bug)
+        src = 'users/stage-ffxbld/{0}'.format(repo)
+        dst = 'users/{0}_mozilla.com/{1}'.format(username, name)
         my_map[name] = (src, dst)
+    # replace 'stage-ffxbld' -> 'username_mozilla.com'
+    my_map['stage-ffxbld'] = ("'users/stage-ffxbld'",
+                              "'users/{0}_mozilla.com'".format(username))
+#    for repo in ('mozilla-beta', 'mozilla-aurora', 'mozilla-esr31',):
+#        src = 'users/stage-ffxbld/'
+#        dst = 'users/{0}_mozilla.com/'.format(username)
+#        name = '{0}-stage'.format(repo)
+#        my_map[name] = (src, dst)
 
     # releases/mozilla-beta => users/<username>_mozilla.com/mozilla_beta
     src = 'releases/mozilla-beta'
