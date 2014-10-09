@@ -10,8 +10,6 @@ import os
 from sh import ssh, hg
 from sh import ErrorReturnCode_1, ErrorReturnCode
 from lib.locales import get_shipped_locales, NoLocalesError
-import shutil
-import tempfile
 
 from lib.logger import logger
 log = logger(__name__)
@@ -211,11 +209,18 @@ class Repository(object):
             log.debug(msg)
             raise RepositoryError(msg)
 
+    def __str__(self):
+        return self.name
+
 
 class Repositories(object):
     """Manages repositories in configuration"""
     def __init__(self, configuration):
         self.configuration = configuration
+        self.create_locales_repo = False
+
+    def mangage_locales(self):
+        self.create_locales_repo = True
 
     def prepare_user_repos(self):
         """runs delete, create, clone and tag on every repository"""
@@ -230,16 +235,18 @@ class Repositories(object):
                 am_i_brave = True
             repo.delete_user_repo(i_am_brave=am_i_brave)
             repo.create_repo()
-            if 'mozilla' not in repo.name:
-                # skip release repository
-                dst_dir = tempfile.mkdtemp()
-                repo.clone_locally(dst_dir, clone_from='user')
-                repo.tag()
-                repo.push()
-                shutil.rmtree(dst_dir)
-            else:
-                log.info('skip tagging of: {0}'.format(repo.name))
+        # create locales repositories
+        # locales creation takes quit a bit of time and by default
+        # it is disabled, use -l or --create-locales option if you wish
+        # to create the locales repositories
+        self.create_locales()
+
+    def create_locales(self):
+        if not self.create_locales_repo:
+            log.debug('locales repositories will not be created, as requested.')
+            return
         # locales
+        conf = self.configuration
         log.info('cloning locales repositiories')
         locales_url = conf.get('locales', 'url')
         try:
@@ -268,21 +275,12 @@ class Repositories(object):
                 # users release repos do not end with tracking bug number
                 am_i_brave = True
             repo.delete_user_repo(i_am_brave=am_i_brave)
-#        # locales
-#        log.info('cloning locales repositiories')
-#        locales_url = conf.get('locales', 'url')
-#        try:
-#            locales = get_shipped_locales(locales_url)
-#        except NoLocalesError as error:
-#            log.debug(error)
-#            raise NoLocalesError(error)
-#        log.info('creating locales repositories')
-#        log.debug('locales: {0}'.format(locales))
-#        for locale in locales:
-#            log.info('repository: {0}'.format(locale))
-#             # make it optional from configuration/command line
-#            loc = LocaleRepository(locale)
-#            loc.delete()
+
+    def __str__(self):
+        conf = self.configuration
+        repos = conf.options('repositories')
+        out = [repo.name for repo in repos]
+        return "\n".join(out)
 
 
 def tag_name(version, products):
